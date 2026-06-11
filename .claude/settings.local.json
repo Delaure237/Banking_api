@@ -3,7 +3,11 @@
     "allow": [
       "Bash(npm init:*)",
       "Bash(npm install:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(git remote:*)",
+      "Bash(find c:/Users/pc/Desktop/tp352/src -type f -name *.ts)",
+      "Bash(npx jest:*)",
+      "WebFetch(domain:banking-api-yvod.onrender.com)"
     ]
   }
 }

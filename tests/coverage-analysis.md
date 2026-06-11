@@ -1,117 +1,140 @@
-# Analyse de Couverture de Test - Système Bancaire API
+# Analyse de Couverture de Test - Systeme Bancaire API
 
-## 5 Fonctionnalités Analysées
+## Fonctionnalites Analysees
 
-1. **Login (Authentification)**
-2. **Deposit (Dépôt)**
-3. **Withdraw (Retrait)**
-4. **Transfer (Virement)**
-5. **Loan Apply (Demande de prêt)**
+1. Login (AuthService.login)
+2. Deposit (TransactionService.deposit)
+3. Withdraw (TransactionService.withdraw)
+4. Transfer (TransactionService.transfer)
+5. Loan Apply (LoanService.apply)
 
----
 
-## 1. LOGIN - `AuthService.login()`
+## 1. LOGIN - AuthService.login()
 
-### Code source (simplifié)
+### Code source simplifie
 
 ```typescript
 async login(email: string, password: string) {
-  // 1. Début
-  const user = await User.findOne({ where: { email } });  // N1
+  const user = await User.findOne({ where: { email } });       // N1
 
-  // 2. Vérifier si user existe
-  if (!user) {                                              // N2
-    throw new UnauthorizedError('Invalid email or password'); // N3
+  if (!user) {                                                   // N2
+    throw new UnauthorizedError('Invalid email or password');    // N3
   }
 
-  // 3. Vérifier si le compte est actif
-  if (!user.isActive) {                                     // N4
-    throw new UnauthorizedError('Account is deactivated');   // N5
+  if (!user.isActive) {                                          // N4
+    throw new UnauthorizedError('Account is deactivated');       // N5
   }
 
-  // 4. Comparer les mots de passe
-  const isMatch = await user.comparePassword(password);     // N6
+  const isMatch = await user.comparePassword(password);          // N6
 
-  if (!isMatch) {                                           // N7
-    throw new UnauthorizedError('Invalid email or password'); // N8
+  if (!isMatch) {                                                // N7
+    throw new UnauthorizedError('Invalid email or password');    // N8
   }
 
-  // 5. Mise à jour et retour
-  await user.update({ lastLogin: new Date() });             // N9
-  const tokens = this.generateTokens(user);                 // N10
-  return { user: user.toSafeJSON(), ...tokens };            // N11 (Fin)
+  await user.update({ lastLogin: new Date() });                  // N9
+  const tokens = this.generateTokens(user);                      // N10
+  return { user: user.toSafeJSON(), ...tokens };                 // N11
 }
 ```
 
 ### CFG (Control Flow Graph)
 
 ```
-       [N1] findOne
-         |
-       [N2] !user ?
-       / \
-     T/   \F
-   [N3]   [N4] !isActive ?
-   (throw)  / \
+        [N1] findOne(email)
+          |
+        [N2] user exists ?
+        / \
+      T/   \F
+    [N3]   [N4] isActive ?
+   throw    / \
           T/   \F
         [N5]  [N6] comparePassword
-        (throw)  |
-               [N7] !isMatch ?
-               / \
-             T/   \F
-           [N8]  [N9] update lastLogin
-           (throw) |
-                 [N10] generateTokens
-                   |
-                 [N11] return (Fin)
+       throw    |
+              [N7] isMatch ?
+              / \
+            T/   \F
+          [N8]  [N9] update lastLogin
+         throw    |
+                [N10] generateTokens
+                  |
+                [N11] return
 ```
 
-### Chemins identifiés
+### Chemins identifies
 
-| Chemin | Nœuds traversés | Condition |
-|--------|----------------|-----------|
-| P1 | N1 → N2 → N3 | User non trouvé |
-| P2 | N1 → N2 → N4 → N5 | User inactif |
-| P3 | N1 → N2 → N4 → N6 → N7 → N8 | Mot de passe incorrect |
-| P4 | N1 → N2 → N4 → N6 → N7 → N9 → N10 → N11 | Login réussi |
+| Chemin | Noeuds traverses                          | Condition              |
+|--------|-------------------------------------------|------------------------|
+| P1     | N1, N2, N3                                | User non trouve        |
+| P2     | N1, N2, N4, N5                            | User inactif           |
+| P3     | N1, N2, N4, N6, N7, N8                    | Mot de passe incorrect |
+| P4     | N1, N2, N4, N6, N7, N9, N10, N11          | Login reussi           |
 
-### Coverage Table
+### Statement Coverage Table
 
-| Cas de test | P1 | P2 | P3 | P4 | Statement Cov. | Branch Cov. | Path Cov. |
-|-------------|----|----|----|----|----------------|-------------|-----------|
-| TC1: Email inexistant | ✓ | | | | N1,N2,N3 | N2=T | P1 |
-| TC2: Compte désactivé | | ✓ | | | N1,N2,N4,N5 | N2=F, N4=T | P2 |
-| TC3: Mauvais password | | | ✓ | | N1,N2,N4,N6,N7,N8 | N2=F, N4=F, N7=T | P3 |
-| TC4: Login valide | | | | ✓ | N1,N2,N4,N6,N7,N9,N10,N11 | N2=F, N4=F, N7=F | P4 |
+| Noeud | TC1 (P1) | TC2 (P2) | TC3 (P3) | TC4 (P4) |
+|-------|----------|----------|----------|----------|
+| N1    | X        | X        | X        | X        |
+| N2    | X        | X        | X        | X        |
+| N3    | X        |          |          |          |
+| N4    |          | X        | X        | X        |
+| N5    |          | X        |          |          |
+| N6    |          |          | X        | X        |
+| N7    |          |          | X        | X        |
+| N8    |          |          | X        |          |
+| N9    |          |          |          | X        |
+| N10   |          |          |          | X        |
+| N11   |          |          |          | X        |
 
-**Statement Coverage** : TC1+TC2+TC3+TC4 → 100% (tous les nœuds couverts)
-**Branch Coverage** : TC1+TC2+TC3+TC4 → 100% (toutes les branches T/F couvertes)
-**Path Coverage** : TC1+TC2+TC3+TC4 → 100% (4 chemins / 4 total)
+Statement Coverage = 11/11 = 100%
 
-### Cas de Test
+### Branch Coverage Table
+
+| Decision | Branche | TC1 | TC2 | TC3 | TC4 |
+|----------|---------|-----|-----|-----|-----|
+| N2       | T (no user)  | X   |     |     |     |
+| N2       | F (user found) |   | X   | X   | X   |
+| N4       | T (inactive) |     | X   |     |     |
+| N4       | F (active)   |     |     | X   | X   |
+| N7       | T (no match) |     |     | X   |     |
+| N7       | F (match)    |     |     |     | X   |
+
+Branch Coverage = 6/6 = 100%
+
+### Path Coverage Table
+
+| Chemin | Noeuds                            | Test couvrant |
+|--------|-----------------------------------|---------------|
+| P1     | N1, N2, N3                        | TC1           |
+| P2     | N1, N2, N4, N5                    | TC2           |
+| P3     | N1, N2, N4, N6, N7, N8            | TC3           |
+| P4     | N1, N2, N4, N6, N7, N9, N10, N11  | TC4           |
+
+Path Coverage = 4/4 = 100%
+
+### Cas de test
 
 ```typescript
 describe('AuthService.login()', () => {
-  // TC1 - Chemin P1: User non trouvé
+
+  // TC1 - P1 : User non trouve
   it('should throw UnauthorizedError when email does not exist', async () => {
     await expect(authService.login('unknown@test.com', 'password'))
       .rejects.toThrow('Invalid email or password');
   });
 
-  // TC2 - Chemin P2: Compte désactivé
+  // TC2 - P2 : Compte desactive
   it('should throw UnauthorizedError when account is deactivated', async () => {
-    // Prérequis: créer un user avec isActive = false
     await expect(authService.login('inactive@test.com', 'password'))
       .rejects.toThrow('Account is deactivated');
   });
 
-  // TC3 - Chemin P3: Mauvais mot de passe
+  // TC3 - P3 : Mauvais mot de passe
   it('should throw UnauthorizedError when password is incorrect', async () => {
     await expect(authService.login('active@test.com', 'wrongpassword'))
       .rejects.toThrow('Invalid email or password');
   });
 
-  // TC4 - Chemin P4: Login réussi
+  // TC4 - P4 : Login reussi
   it('should return user and tokens on successful login', async () => {
     const result = await authService.login('active@test.com', 'correctpassword');
     expect(result).toHaveProperty('accessToken');
@@ -121,41 +144,27 @@ describe('AuthService.login()', () => {
 });
 ```
 
----
 
-## 2. DEPOSIT - `TransactionService.deposit()`
+## 2. DEPOSIT - TransactionService.deposit()
 
-### Code source (simplifié)
+### Code source simplifie
 
 ```typescript
 async deposit(data: { accountId: string; amount: number; description?: string }) {
-  // N1: Valider le compte
-  const account = await accountService.validateAccountActive(data.accountId);
-  // Note: validateAccountActive peut throw NotFoundError(N2), AccountLockedError(N3), BadRequestError(N4)
+  const account = await accountService.validateAccountActive(data.accountId); // N1
+  // validateAccountActive throws: NotFoundError (N2), AccountLockedError (N3), BadRequestError (N4)
 
-  // N5: Démarrer la transaction DB
-  const t = await sequelize.transaction();
+  const t = await sequelize.transaction();                                    // N5
 
   try {
-    // N6: Calculer nouveau solde
-    const newBalance = Number(account.balance) + data.amount;
-
-    // N7: Mettre à jour le solde
-    await account.update({ balance: newBalance }, { transaction: t });
-
-    // N8: Créer l'enregistrement de transaction
-    const txn = await Transaction.create({...}, { transaction: t });
-
-    // N9: Commit
-    await t.commit();
-
-    // N10: Retourner la transaction
-    return txn;
+    const newBalance = Number(account.balance) + data.amount;                 // N6
+    await account.update({ balance: newBalance }, { transaction: t });        // N7
+    const txn = await Transaction.create({...}, { transaction: t });          // N8
+    await t.commit();                                                         // N9
+    return txn;                                                               // N10
   } catch (error) {
-    // N11: Rollback
-    await t.rollback();
-    // N12: Re-throw
-    throw error;
+    await t.rollback();                                                       // N11
+    throw error;                                                              // N12
   }
 }
 ```
@@ -163,138 +172,149 @@ async deposit(data: { accountId: string; amount: number; description?: string })
 ### CFG
 
 ```
-     [N1] validateAccountActive
-      |  (peut throw → N2, N3, N4)
-     / | \  \
+      [N1] validateAccountActive
+     / | \    \
    N2  N3  N4  \
-  (throw)(throw)(throw)
-                 \
-                [N5] sequelize.transaction()
+  err  err  err  \
+                [N5] begin transaction
                   |
                 [N6] calcul newBalance
                   |
                 [N7] account.update
                   |
                 [N8] Transaction.create
-                  |  (peut throw → N11)
-                [N9] commit
-                  |
-                [N10] return txn
-
-    Si erreur dans N7-N9:
-                [N11] rollback
-                  |
-                [N12] throw error
+                / \
+          error/   \success
+             /      \
+          [N11]    [N9] commit
+            |        |
+          [N12]    [N10] return
+          throw
 ```
 
-### Chemins identifiés
+### Chemins identifies
 
-| Chemin | Description |
-|--------|-------------|
-| P1 | N1 → N2 (compte non trouvé) |
-| P2 | N1 → N3 (compte verrouillé) |
-| P3 | N1 → N4 (compte inactif) |
-| P4 | N1 → N5 → N6 → N7 → N8 → N9 → N10 (dépôt réussi) |
-| P5 | N1 → N5 → N6 → N7 → N11 → N12 (erreur DB, rollback) |
+| Chemin | Noeuds                              | Description             |
+|--------|-------------------------------------|-------------------------|
+| P1     | N1, N2                              | Compte non trouve       |
+| P2     | N1, N3                              | Compte verrouille       |
+| P3     | N1, N4                              | Compte inactif          |
+| P4     | N1, N5, N6, N7, N8, N9, N10        | Depot reussi            |
+| P5     | N1, N5, N6, N7, N8, N11, N12       | Erreur DB, rollback     |
 
-### Coverage Table
+### Statement Coverage Table
 
-| Cas de test | P1 | P2 | P3 | P4 | P5 | Statement Cov. | Branch Cov. | Path Cov. |
-|-------------|----|----|----|----|----|----|----|----|
-| TC1: Account inexistant | ✓ | | | | | N1,N2 | validate=notFound | P1 |
-| TC2: Account verrouillé | | ✓ | | | | N1,N3 | validate=locked | P2 |
-| TC3: Account inactif | | | ✓ | | | N1,N4 | validate=inactive | P3 |
-| TC4: Dépôt réussi | | | | ✓ | | N1,N5-N10 | validate=OK, try=success | P4 |
-| TC5: Erreur DB | | | | | ✓ | N1,N5-N7,N11,N12 | validate=OK, try=error | P5 |
+| Noeud | TC1 (P1) | TC2 (P2) | TC3 (P3) | TC4 (P4) | TC5 (P5) |
+|-------|----------|----------|----------|----------|----------|
+| N1    | X        | X        | X        | X        | X        |
+| N2    | X        |          |          |          |          |
+| N3    |          | X        |          |          |          |
+| N4    |          |          | X        |          |          |
+| N5    |          |          |          | X        | X        |
+| N6    |          |          |          | X        | X        |
+| N7    |          |          |          | X        | X        |
+| N8    |          |          |          | X        | X        |
+| N9    |          |          |          | X        |          |
+| N10   |          |          |          | X        |          |
+| N11   |          |          |          |          | X        |
+| N12   |          |          |          |          | X        |
 
-**Statement Coverage** : TC1+TC4+TC5 → 100%
-**Branch Coverage** : TC1+TC2+TC3+TC4+TC5 → 100%
-**Path Coverage** : TC1-TC5 → 100% (5/5)
+Statement Coverage = 12/12 = 100%
 
-### Cas de Test
+### Branch Coverage Table
+
+| Decision         | Branche           | TC1 | TC2 | TC3 | TC4 | TC5 |
+|------------------|-------------------|-----|-----|-----|-----|-----|
+| N1 validate      | not found         | X   |     |     |     |     |
+| N1 validate      | locked            |     | X   |     |     |     |
+| N1 validate      | inactive          |     |     | X   |     |     |
+| N1 validate      | active            |     |     |     | X   | X   |
+| N8 try/catch     | success           |     |     |     | X   |     |
+| N8 try/catch     | error             |     |     |     |     | X   |
+
+Branch Coverage = 6/6 = 100%
+
+### Path Coverage Table
+
+| Chemin | Noeuds                         | Test couvrant |
+|--------|--------------------------------|---------------|
+| P1     | N1, N2                         | TC1           |
+| P2     | N1, N3                         | TC2           |
+| P3     | N1, N4                         | TC3           |
+| P4     | N1, N5, N6, N7, N8, N9, N10   | TC4           |
+| P5     | N1, N5, N6, N7, N8, N11, N12  | TC5           |
+
+Path Coverage = 5/5 = 100%
+
+### Cas de test
 
 ```typescript
 describe('TransactionService.deposit()', () => {
-  // TC1 - P1: Compte inexistant
+
+  // TC1 - P1
   it('should throw NotFoundError when account does not exist', async () => {
     await expect(transactionService.deposit({ accountId: 'non-existent-uuid', amount: 100 }))
       .rejects.toThrow('Account not found');
   });
 
-  // TC2 - P2: Compte verrouillé
+  // TC2 - P2
   it('should throw AccountLockedError when account is locked', async () => {
-    // Prérequis: compte avec status = 'locked'
     await expect(transactionService.deposit({ accountId: lockedAccountId, amount: 100 }))
       .rejects.toThrow('Account is locked');
   });
 
-  // TC3 - P3: Compte inactif
+  // TC3 - P3
   it('should throw BadRequestError when account is not active', async () => {
     await expect(transactionService.deposit({ accountId: inactiveAccountId, amount: 100 }))
       .rejects.toThrow('Account is not active');
   });
 
-  // TC4 - P4: Dépôt réussi
+  // TC4 - P4
   it('should deposit amount and return transaction', async () => {
-    const result = await transactionService.deposit({ accountId: activeAccountId, amount: 500, description: 'Test deposit' });
+    const result = await transactionService.deposit({
+      accountId: activeAccountId, amount: 500, description: 'Test deposit'
+    });
     expect(result.amount).toBe(500);
     expect(result.type).toBe('deposit');
     expect(result.status).toBe('completed');
   });
 
-  // TC5 - P5: Erreur DB rollback
+  // TC5 - P5
   it('should rollback on database error', async () => {
-    // Mock: forcer une erreur lors de Transaction.create
     jest.spyOn(Transaction, 'create').mockRejectedValueOnce(new Error('DB Error'));
     await expect(transactionService.deposit({ accountId: activeAccountId, amount: 100 }))
       .rejects.toThrow('DB Error');
-    // Vérifier que le solde n'a pas changé
   });
 });
 ```
 
----
 
-## 3. WITHDRAW - `TransactionService.withdraw()`
+## 3. WITHDRAW - TransactionService.withdraw()
 
-### Code source (simplifié)
+### Code source simplifie
 
 ```typescript
 async withdraw(data: { accountId: string; amount: number; description?: string }) {
-  // N1: Valider le compte
-  const account = await accountService.validateAccountActive(data.accountId);
-  // Peut throw: NotFoundError(N2), AccountLockedError(N3), BadRequestError(N4)
+  const account = await accountService.validateAccountActive(data.accountId); // N1
+  // throws: NotFoundError (N2), AccountLockedError (N3), BadRequestError (N4)
 
-  // N5: Vérifier le solde disponible
-  const availableBalance = Number(account.balance) + Number(account.overdraftLimit);
+  const availableBalance = Number(account.balance) + Number(account.overdraftLimit); // N5
 
-  if (data.amount > availableBalance) {  // N6: condition
+  if (data.amount > availableBalance) {   // N6
     throw new InsufficientFundsError();   // N7
   }
 
-  // N8: Démarrer la transaction DB
-  const t = await sequelize.transaction();
+  const t = await sequelize.transaction();                                    // N8
 
   try {
-    // N9: Calculer nouveau solde
-    const newBalance = Number(account.balance) - data.amount;
-
-    // N10: Update
-    await account.update({ balance: newBalance }, { transaction: t });
-
-    // N11: Créer transaction
-    const txn = await Transaction.create({...}, { transaction: t });
-
-    // N12: Commit
-    await t.commit();
-
-    // N13: Return
-    return txn;
+    const newBalance = Number(account.balance) - data.amount;                 // N9
+    await account.update({ balance: newBalance }, { transaction: t });        // N10
+    const txn = await Transaction.create({...}, { transaction: t });          // N11
+    await t.commit();                                                         // N12
+    return txn;                                                               // N13
   } catch (error) {
-    // N14: Rollback
-    await t.rollback();
-    // N15: Re-throw
-    throw error;
+    await t.rollback();                                                       // N14
+    throw error;                                                              // N15
   }
 }
 ```
@@ -302,63 +322,97 @@ async withdraw(data: { accountId: string; amount: number; description?: string }
 ### CFG
 
 ```
-     [N1] validateAccountActive
-    / | \   \
-  N2  N3  N4  \
-                \
-              [N5] calcul availableBalance
-                |
-              [N6] amount > availableBalance ?
-              / \
-            T/   \F
-          [N7]  [N8] transaction()
-         (throw)  |
-                [N9] calcul newBalance
+      [N1] validateAccountActive
+     / | \    \
+   N2  N3  N4  \
+   err err err   \
+                [N5] calcul availableBalance
                   |
-                [N10] update
-                  |
-                [N11] create
-                  |  (peut throw → N14)
-                [N12] commit
-                  |
-                [N13] return
-
-    Si erreur:
-                [N14] rollback
-                  |
-                [N15] throw
+                [N6] amount > available ?
+                / \
+              T/   \F
+            [N7]  [N8] begin transaction
+           throw    |
+                  [N9] calcul newBalance
+                    |
+                  [N10] account.update
+                    |
+                  [N11] Transaction.create
+                  / \
+            error/   \success
+               /      \
+            [N14]    [N12] commit
+              |        |
+            [N15]    [N13] return
+            throw
 ```
 
-### Chemins identifiés
+### Chemins identifies
 
-| Chemin | Description |
-|--------|-------------|
-| P1 | N1 → N2 (compte non trouvé) |
-| P2 | N1 → N3 (compte verrouillé) |
-| P3 | N1 → N4 (compte inactif) |
-| P4 | N1 → N5 → N6 → N7 (fonds insuffisants) |
-| P5 | N1 → N5 → N6 → N8 → N9 → N10 → N11 → N12 → N13 (retrait réussi) |
-| P6 | N1 → N5 → N6 → N8 → N9 → N10 → N14 → N15 (erreur DB) |
+| Chemin | Noeuds                                    | Description             |
+|--------|-------------------------------------------|-------------------------|
+| P1     | N1, N2                                    | Compte non trouve       |
+| P2     | N1, N3                                    | Compte verrouille       |
+| P3     | N1, N4                                    | Compte inactif          |
+| P4     | N1, N5, N6, N7                            | Fonds insuffisants      |
+| P5     | N1, N5, N6, N8, N9, N10, N11, N12, N13   | Retrait reussi          |
+| P6     | N1, N5, N6, N8, N9, N10, N11, N14, N15   | Erreur DB, rollback     |
 
-### Coverage Table
+### Statement Coverage Table
 
-| Cas de test | P1 | P2 | P3 | P4 | P5 | P6 | Statement | Branch | Path |
-|-------------|----|----|----|----|----|----|-----------|--------|------|
-| TC1: Account not found | ✓ | | | | | | N1,N2 | validate=notFound | P1 |
-| TC2: Account locked | | ✓ | | | | | N1,N3 | validate=locked | P2 |
-| TC3: Account inactive | | | ✓ | | | | N1,N4 | validate=inactive | P3 |
-| TC4: Insufficient funds | | | | ✓ | | | N1,N5,N6,N7 | N6=T | P4 |
-| TC5: Withdrawal success | | | | | ✓ | | N1,N5,N6,N8-N13 | N6=F, try=ok | P5 |
-| TC6: DB error rollback | | | | | | ✓ | N1,N5,N6,N8-N10,N14,N15 | N6=F, try=err | P6 |
+| Noeud | TC1 (P1) | TC2 (P2) | TC3 (P3) | TC4 (P4) | TC5 (P5) | TC6 (P6) |
+|-------|----------|----------|----------|----------|----------|----------|
+| N1    | X        | X        | X        | X        | X        | X        |
+| N2    | X        |          |          |          |          |          |
+| N3    |          | X        |          |          |          |          |
+| N4    |          |          | X        |          |          |          |
+| N5    |          |          |          | X        | X        | X        |
+| N6    |          |          |          | X        | X        | X        |
+| N7    |          |          |          | X        |          |          |
+| N8    |          |          |          |          | X        | X        |
+| N9    |          |          |          |          | X        | X        |
+| N10   |          |          |          |          | X        | X        |
+| N11   |          |          |          |          | X        | X        |
+| N12   |          |          |          |          | X        |          |
+| N13   |          |          |          |          | X        |          |
+| N14   |          |          |          |          |          | X        |
+| N15   |          |          |          |          |          | X        |
 
-**Statement Coverage** : TC1+TC4+TC5+TC6 → 100%
-**Branch Coverage** : TC1+TC2+TC3+TC4+TC5+TC6 → 100%
-**Path Coverage** : TC1-TC6 → 100% (6/6)
+Statement Coverage = 15/15 = 100%
 
-### Cas de Test
+### Branch Coverage Table
+
+| Decision     | Branche       | TC1 | TC2 | TC3 | TC4 | TC5 | TC6 |
+|--------------|---------------|-----|-----|-----|-----|-----|-----|
+| N1 validate  | not found     | X   |     |     |     |     |     |
+| N1 validate  | locked        |     | X   |     |     |     |     |
+| N1 validate  | inactive      |     |     | X   |     |     |     |
+| N1 validate  | active        |     |     |     | X   | X   | X   |
+| N6 condition | T (> avail)   |     |     |     | X   |     |     |
+| N6 condition | F (<= avail)  |     |     |     |     | X   | X   |
+| N11 try/catch| success       |     |     |     |     | X   |     |
+| N11 try/catch| error         |     |     |     |     |     | X   |
+
+Branch Coverage = 8/8 = 100%
+
+### Path Coverage Table
+
+| Chemin | Noeuds                                  | Test couvrant |
+|--------|-----------------------------------------|---------------|
+| P1     | N1, N2                                  | TC1           |
+| P2     | N1, N3                                  | TC2           |
+| P3     | N1, N4                                  | TC3           |
+| P4     | N1, N5, N6, N7                          | TC4           |
+| P5     | N1, N5, N6, N8, N9, N10, N11, N12, N13  | TC5           |
+| P6     | N1, N5, N6, N8, N9, N10, N11, N14, N15  | TC6           |
+
+Path Coverage = 6/6 = 100%
+
+### Cas de test
 
 ```typescript
 describe('TransactionService.withdraw()', () => {
+
   // TC1 - P1
   it('should throw NotFoundError when account does not exist', async () => {
     await expect(transactionService.withdraw({ accountId: 'fake-uuid', amount: 100 }))
@@ -378,14 +432,13 @@ describe('TransactionService.withdraw()', () => {
   });
 
   // TC4 - P4
-  it('should throw InsufficientFundsError when amount exceeds available balance', async () => {
-    // Compte avec solde = 100, overdraft = 0, retrait = 200
+  it('should throw InsufficientFundsError when amount exceeds balance', async () => {
     await expect(transactionService.withdraw({ accountId: activeAccountId, amount: 99999 }))
       .rejects.toThrow('Insufficient funds');
   });
 
   // TC5 - P5
-  it('should withdraw amount and return transaction on success', async () => {
+  it('should withdraw amount and return transaction', async () => {
     const result = await transactionService.withdraw({ accountId: activeAccountId, amount: 50 });
     expect(result.amount).toBe(50);
     expect(result.type).toBe('withdrawal');
@@ -401,55 +454,44 @@ describe('TransactionService.withdraw()', () => {
 });
 ```
 
----
 
-## 4. TRANSFER - `TransactionService.transfer()`
+## 4. TRANSFER - TransactionService.transfer()
 
-### Code source (simplifié)
+### Code source simplifie
 
 ```typescript
-async transfer(data: { fromAccountId: string; toAccountId: string; amount: number; description?: string }) {
-  // N1: Vérifier si même compte
-  if (data.fromAccountId === data.toAccountId) {  // N1
-    throw new BadRequestError('Cannot transfer to the same account'); // N2
+async transfer(data: {
+  fromAccountId: string; toAccountId: string; amount: number; description?: string
+}) {
+  if (data.fromAccountId === data.toAccountId) {                              // N1
+    throw new BadRequestError('Cannot transfer to the same account');         // N2
   }
 
-  // N3: Valider compte source
-  const fromAccount = await accountService.validateAccountActive(data.fromAccountId);
-  // Peut throw NotFoundError(N4)
+  const fromAccount = await accountService.validateAccountActive(data.fromAccountId); // N3
+  // throws NotFoundError (N4)
 
-  // N5: Valider compte destination
-  const toAccount = await accountService.validateAccountActive(data.toAccountId);
-  // Peut throw NotFoundError(N6)
+  const toAccount = await accountService.validateAccountActive(data.toAccountId);     // N5
+  // throws NotFoundError (N6)
 
-  // N7: Vérifier fonds
-  const availableBalance = Number(fromAccount.balance) + Number(fromAccount.overdraftLimit);
-  if (data.amount > availableBalance) {  // N8
+  const availableBalance = Number(fromAccount.balance) + Number(fromAccount.overdraftLimit); // N7
+
+  if (data.amount > availableBalance) {   // N8
     throw new InsufficientFundsError();   // N9
   }
 
-  // N10: Transaction DB
-  const t = await sequelize.transaction();
+  const t = await sequelize.transaction();                                    // N10
 
   try {
-    // N11: Débiter source
-    const newFromBalance = Number(fromAccount.balance) - data.amount;
+    const newFromBalance = Number(fromAccount.balance) - data.amount;         // N11
     const newToBalance = Number(toAccount.balance) + data.amount;
-    await fromAccount.update({ balance: newFromBalance }, { transaction: t }); // N12
-    await toAccount.update({ balance: newToBalance }, { transaction: t });     // N13
-
-    // N14: Créer enregistrement
-    const txn = await Transaction.create({...}, { transaction: t });
-
-    // N15: Commit
-    await t.commit();
-
-    // N16: Return
-    return txn;
+    await fromAccount.update({ balance: newFromBalance }, { transaction: t });// N12
+    await toAccount.update({ balance: newToBalance }, { transaction: t });    // N13
+    const txn = await Transaction.create({...}, { transaction: t });          // N14
+    await t.commit();                                                         // N15
+    return txn;                                                               // N16
   } catch (error) {
-    // N17: Rollback
-    await t.rollback();
-    throw error; // N18
+    await t.rollback();                                                       // N17
+    throw error;                                                              // N18
   }
 }
 ```
@@ -457,70 +499,113 @@ async transfer(data: { fromAccountId: string; toAccountId: string; amount: numbe
 ### CFG
 
 ```
-     [N1] fromAccountId === toAccountId ?
+      [N1] fromAccountId === toAccountId ?
       / \
     T/   \F
   [N2]  [N3] validate fromAccount
- (throw)  |  (peut throw → N4)
-         / \
-       N4   \
-      (throw) \
-             [N5] validate toAccount
-               |  (peut throw → N6)
-              / \
-            N6   \
-           (throw) \
-                  [N7] calcul availableBalance
-                    |
-                  [N8] amount > available ?
-                  / \
-                T/   \F
-              [N9]  [N10] transaction()
-             (throw)  |
-                    [N11-N13] updates
-                      |
-                    [N14] create
-                      |
-                    [N15] commit
-                      |
-                    [N16] return
-
-    Si erreur dans try:
-                    [N17] rollback
-                      |
-                    [N18] throw
+ throw   |   (throws N4)
+        / \
+      N4   \
+     err    \
+            [N5] validate toAccount
+              |   (throws N6)
+            / \
+          N6   \
+         err    \
+               [N7] calcul availableBalance
+                 |
+               [N8] amount > available ?
+               / \
+             T/   \F
+           [N9]  [N10] begin transaction
+          throw    |
+                 [N11] calcul balances
+                   |
+                 [N12] from.update
+                   |
+                 [N13] to.update
+                   |
+                 [N14] Transaction.create
+                 / \
+           error/   \success
+              /      \
+           [N17]    [N15] commit
+             |        |
+           [N18]    [N16] return
+           throw
 ```
 
-### Chemins identifiés
+### Chemins identifies
 
-| Chemin | Description |
-|--------|-------------|
-| P1 | N1 → N2 (même compte) |
-| P2 | N1 → N3 → N4 (compte source non trouvé) |
-| P3 | N1 → N3 → N5 → N6 (compte destination non trouvé) |
-| P4 | N1 → N3 → N5 → N7 → N8 → N9 (fonds insuffisants) |
-| P5 | N1 → N3 → N5 → N7 → N8 → N10...N16 (transfert réussi) |
-| P6 | N1 → N3 → N5 → N7 → N8 → N10...N14 → N17 → N18 (erreur DB) |
+| Chemin | Noeuds                                              | Description                  |
+|--------|-----------------------------------------------------|------------------------------|
+| P1     | N1, N2                                              | Meme compte                  |
+| P2     | N1, N3, N4                                          | Source non trouve            |
+| P3     | N1, N3, N5, N6                                      | Destination non trouve       |
+| P4     | N1, N3, N5, N7, N8, N9                              | Fonds insuffisants           |
+| P5     | N1, N3, N5, N7, N8, N10, N11, ..., N15, N16        | Transfert reussi             |
+| P6     | N1, N3, N5, N7, N8, N10, N11, ..., N14, N17, N18   | Erreur DB, rollback          |
 
-### Coverage Table
+### Statement Coverage Table
 
-| Cas de test | P1 | P2 | P3 | P4 | P5 | P6 | Statement | Branch | Path |
-|-------------|----|----|----|----|----|----|-----------|--------|------|
-| TC1: Même compte | ✓ | | | | | | N1,N2 | N1=T | P1 |
-| TC2: Source inexistant | | ✓ | | | | | N1,N3,N4 | N1=F, src=err | P2 |
-| TC3: Dest inexistant | | | ✓ | | | | N1,N3,N5,N6 | N1=F, dest=err | P3 |
-| TC4: Fonds insuffisants | | | | ✓ | | | N1,N3,N5,N7,N8,N9 | N8=T | P4 |
-| TC5: Transfert OK | | | | | ✓ | | N1,N3,N5,N7,N8,N10-N16 | N8=F, try=ok | P5 |
-| TC6: DB error | | | | | | ✓ | N1,N3,N5,N7,N8,N10-N14,N17,N18 | N8=F, try=err | P6 |
+| Noeud | TC1 (P1) | TC2 (P2) | TC3 (P3) | TC4 (P4) | TC5 (P5) | TC6 (P6) |
+|-------|----------|----------|----------|----------|----------|----------|
+| N1    | X        | X        | X        | X        | X        | X        |
+| N2    | X        |          |          |          |          |          |
+| N3    |          | X        | X        | X        | X        | X        |
+| N4    |          | X        |          |          |          |          |
+| N5    |          |          | X        | X        | X        | X        |
+| N6    |          |          | X        |          |          |          |
+| N7    |          |          |          | X        | X        | X        |
+| N8    |          |          |          | X        | X        | X        |
+| N9    |          |          |          | X        |          |          |
+| N10   |          |          |          |          | X        | X        |
+| N11   |          |          |          |          | X        | X        |
+| N12   |          |          |          |          | X        | X        |
+| N13   |          |          |          |          | X        | X        |
+| N14   |          |          |          |          | X        | X        |
+| N15   |          |          |          |          | X        |          |
+| N16   |          |          |          |          | X        |          |
+| N17   |          |          |          |          |          | X        |
+| N18   |          |          |          |          |          | X        |
 
-**Statement Coverage** : TC1+TC2+TC3+TC4+TC5+TC6 → 100%
-**Branch Coverage** : TC1-TC6 → 100%
-**Path Coverage** : 6/6 → 100%
+Statement Coverage = 18/18 = 100%
 
-### Cas de Test
+### Branch Coverage Table
+
+| Decision     | Branche          | TC1 | TC2 | TC3 | TC4 | TC5 | TC6 |
+|--------------|------------------|-----|-----|-----|-----|-----|-----|
+| N1 condition | T (same)         | X   |     |     |     |     |     |
+| N1 condition | F (different)    |     | X   | X   | X   | X   | X   |
+| N3 validate  | error            |     | X   |     |     |     |     |
+| N3 validate  | success          |     |     | X   | X   | X   | X   |
+| N5 validate  | error            |     |     | X   |     |     |     |
+| N5 validate  | success          |     |     |     | X   | X   | X   |
+| N8 condition | T (> avail)      |     |     |     | X   |     |     |
+| N8 condition | F (<= avail)     |     |     |     |     | X   | X   |
+| N14 try/catch| success          |     |     |     |     | X   |     |
+| N14 try/catch| error            |     |     |     |     |     | X   |
+
+Branch Coverage = 10/10 = 100%
+
+### Path Coverage Table
+
+| Chemin | Noeuds                                           | Test couvrant |
+|--------|--------------------------------------------------|---------------|
+| P1     | N1, N2                                           | TC1           |
+| P2     | N1, N3, N4                                       | TC2           |
+| P3     | N1, N3, N5, N6                                   | TC3           |
+| P4     | N1, N3, N5, N7, N8, N9                           | TC4           |
+| P5     | N1, N3, N5, N7, N8, N10 ... N15, N16             | TC5           |
+| P6     | N1, N3, N5, N7, N8, N10 ... N14, N17, N18        | TC6           |
+
+Path Coverage = 6/6 = 100%
+
+### Cas de test
 
 ```typescript
 describe('TransactionService.transfer()', () => {
+
   // TC1 - P1
   it('should throw BadRequestError when transferring to same account', async () => {
     await expect(transactionService.transfer({
@@ -534,7 +619,7 @@ describe('TransactionService.transfer()', () => {
       fromAccountId: 'non-existent', toAccountId: validAccountId, amount: 100
     })).rejects.toThrow('Account not found');
   });
-
+  
   // TC3 - P3
   it('should throw NotFoundError when destination account does not exist', async () => {
     await expect(transactionService.transfer({
@@ -569,91 +654,101 @@ describe('TransactionService.transfer()', () => {
 });
 ```
 
----
 
-## 5. LOAN APPLY - `LoanService.apply()`
+## 5. LOAN APPLY - LoanService.apply()
 
-### Code source (simplifié)
+### Code source simplifie
 
 ```typescript
-async apply(userId: string, data: { accountId: string; type: LoanType; amount: number; termMonths: number; description: string }) {
-  // N1: Vérifier que le compte appartient à l'utilisateur
-  const account = await Account.findOne({ where: { id: data.accountId, userId } });
+async apply(userId: string, data: {
+  accountId: string; type: LoanType; amount: number; termMonths: number; description: string
+}) {
+  const account = await Account.findOne({ where: { id: data.accountId, userId } }); // N1
 
-  // N2: Condition compte existe
-  if (!account) {               // N2
-    throw new NotFoundError('Account'); // N3
+  if (!account) {                         // N2
+    throw new NotFoundError('Account');   // N3
   }
 
-  // N4: Calculer le taux d'intérêt
-  const interestRate = this.getInterestRate(data.type);
+  const interestRate = this.getInterestRate(data.type);                              // N4
+  const monthlyPayment = calculateMonthlyPayment(
+    data.amount, interestRate, data.termMonths
+  );                                                                                  // N5
 
-  // N5: Calculer le paiement mensuel
-  const monthlyPayment = calculateMonthlyPayment(data.amount, interestRate, data.termMonths);
-
-  // N6: Créer le prêt
   const loan = await Loan.create({
     reference: generateLoanReference(),
-    userId,
-    accountId: data.accountId,
-    type: data.type,
-    amount: data.amount,
-    interestRate,
-    termMonths: data.termMonths,
+    userId, accountId: data.accountId, type: data.type,
+    amount: data.amount, interestRate, termMonths: data.termMonths,
     monthlyPayment,
     remainingBalance: data.amount + (monthlyPayment * data.termMonths - data.amount),
     description: data.description,
-  });
+  });                                                                                 // N6
 
-  // N7: Retourner le prêt
-  return loan;
+  return loan;                                                                        // N7
 }
 ```
 
 ### CFG
 
 ```
-     [N1] Account.findOne
-       |
-     [N2] !account ?
+      [N1] Account.findOne
+        |
+      [N2] account exists ?
       / \
     T/   \F
   [N3]  [N4] getInterestRate
- (throw)  |
-         [N5] calculateMonthlyPayment
-           |
-         [N6] Loan.create
-           |  (peut throw → erreur DB)
-         [N7] return loan
+ throw    |
+        [N5] calculateMonthlyPayment
+          |
+        [N6] Loan.create
+          |
+        [N7] return loan
 ```
 
-### Chemins identifiés
+### Chemins identifies
 
-| Chemin | Description |
-|--------|-------------|
-| P1 | N1 → N2 → N3 (compte non trouvé / n'appartient pas à l'user) |
-| P2 | N1 → N2 → N4 → N5 → N6 → N7 (demande de prêt réussie) |
-| P3 | N1 → N2 → N4 → N5 → N6 (erreur DB lors de la création) |
+| Chemin | Noeuds                     | Description                              |
+|--------|----------------------------|------------------------------------------|
+| P1     | N1, N2, N3                 | Compte non trouve ou non lie a l'user    |
+| P2     | N1, N2, N4, N5, N6, N7    | Demande de pret reussie                  |
 
-### Coverage Table
+### Statement Coverage Table
 
-| Cas de test | P1 | P2 | P3 | Statement | Branch | Path |
-|-------------|----|----|----|----|----|----|
-| TC1: Compte non trouvé | ✓ | | | N1,N2,N3 | N2=T | P1 |
-| TC2: Prêt personnel créé | | ✓ | | N1,N2,N4,N5,N6,N7 | N2=F | P2 |
-| TC3: Prêt hypothécaire créé | | ✓ | | N1,N2,N4,N5,N6,N7 | N2=F | P2 |
-| TC4: Prêt auto créé | | ✓ | | N1,N2,N4,N5,N6,N7 | N2=F | P2 |
-| TC5: Erreur DB | | | ✓ | N1,N2,N4,N5,N6 | N2=F, create=err | P3 |
+| Noeud | TC1 (P1) | TC2 (P2) | TC3 (P2) | TC4 (P2) |
+|-------|----------|----------|----------|----------|
+| N1    | X        | X        | X        | X        |
+| N2    | X        | X        | X        | X        |
+| N3    | X        |          |          |          |
+| N4    |          | X        | X        | X        |
+| N5    |          | X        | X        | X        |
+| N6    |          | X        | X        | X        |
+| N7    |          | X        | X        | X        |
 
-**Statement Coverage** : TC1+TC2 → 100%
-**Branch Coverage** : TC1+TC2 → 100%
-**Path Coverage** : TC1+TC2+TC5 → 100% (3/3)
+Statement Coverage = 7/7 = 100%
 
-### Cas de Test
+### Branch Coverage Table
+
+| Decision     | Branche         | TC1 | TC2 | TC3 | TC4 |
+|--------------|-----------------|-----|-----|-----|-----|
+| N2 condition | T (no account)  | X   |     |     |     |
+| N2 condition | F (found)       |     | X   | X   | X   |
+
+Branch Coverage = 2/2 = 100%
+
+### Path Coverage Table
+
+| Chemin | Noeuds                  | Test couvrant |
+|--------|-------------------------|---------------|
+| P1     | N1, N2, N3              | TC1           |
+| P2     | N1, N2, N4, N5, N6, N7  | TC2, TC3, TC4 |
+
+Path Coverage = 2/2 = 100%
+
+### Cas de test
 
 ```typescript
 describe('LoanService.apply()', () => {
-  // TC1 - P1: Compte non trouvé
+
+  // TC1 - P1 : Compte non trouve
   it('should throw NotFoundError when account does not belong to user', async () => {
     await expect(loanService.apply('user-id', {
       accountId: 'other-user-account',
@@ -664,8 +759,8 @@ describe('LoanService.apply()', () => {
     })).rejects.toThrow('Account not found');
   });
 
-  // TC2 - P2: Prêt personnel
-  it('should create a personal loan with correct interest rate (5.5%)', async () => {
+  // TC2 - P2 : Pret personnel (taux 5.5%)
+  it('should create a personal loan with correct interest rate', async () => {
     const result = await loanService.apply(userId, {
       accountId: validAccountId,
       type: LoanType.PERSONAL,
@@ -679,8 +774,8 @@ describe('LoanService.apply()', () => {
     expect(result.monthlyPayment).toBeGreaterThan(0);
   });
 
-  // TC3 - P2: Prêt hypothécaire (différent taux)
-  it('should create a mortgage loan with correct interest rate (3.2%)', async () => {
+  // TC3 - P2 : Pret hypothecaire (taux 3.2%)
+  it('should create a mortgage loan with correct interest rate', async () => {
     const result = await loanService.apply(userId, {
       accountId: validAccountId,
       type: LoanType.MORTGAGE,
@@ -692,8 +787,8 @@ describe('LoanService.apply()', () => {
     expect(result.interestRate).toBe(3.2);
   });
 
-  // TC4 - P2: Prêt auto
-  it('should create an auto loan with correct interest rate (4.0%)', async () => {
+  // TC4 - P2 : Pret auto (taux 4.0%)
+  it('should create an auto loan with correct interest rate', async () => {
     const result = await loanService.apply(userId, {
       accountId: validAccountId,
       type: LoanType.AUTO,
@@ -704,36 +799,23 @@ describe('LoanService.apply()', () => {
     expect(result.type).toBe('auto');
     expect(result.interestRate).toBe(4.0);
   });
-
-  // TC5 - P3: Erreur DB
-  it('should propagate database error on Loan.create failure', async () => {
-    jest.spyOn(Loan, 'create').mockRejectedValueOnce(new Error('DB connection lost'));
-    await expect(loanService.apply(userId, {
-      accountId: validAccountId,
-      type: LoanType.STUDENT,
-      amount: 5000,
-      termMonths: 48,
-      description: 'Study loan'
-    })).rejects.toThrow('DB connection lost');
-  });
 });
 ```
 
----
 
-## Résumé Global de Couverture
+## Resume Global
 
-| Fonctionnalité | Nb Chemins | Nb Tests | Statement Cov. | Branch Cov. | Path Cov. |
-|---------------|-----------|---------|----------------|-------------|-----------|
-| Login | 4 | 4 | 100% | 100% | 100% |
-| Deposit | 5 | 5 | 100% | 100% | 100% |
-| Withdraw | 6 | 6 | 100% | 100% | 100% |
-| Transfer | 6 | 6 | 100% | 100% | 100% |
-| Loan Apply | 3 | 5 | 100% | 100% | 100% |
-| **TOTAL** | **24** | **26** | **100%** | **100%** | **100%** |
+| Fonctionnalite | Chemins | Tests | Statement | Branch | Path  |
+|----------------|---------|-------|-----------|--------|-------|
+| Login          | 4       | 4     | 100%      | 100%   | 100%  |
+| Deposit        | 5       | 5     | 100%      | 100%   | 100%  |
+| Withdraw       | 6       | 6     | 100%      | 100%   | 100%  |
+| Transfer       | 6       | 6     | 100%      | 100%   | 100%  |
+| Loan Apply     | 2       | 4     | 100%      | 100%   | 100%  |
+| TOTAL          | 23      | 25    | 100%      | 100%   | 100%  |
 
-### Légende des stratégies de test
+### Definitions
 
-- **Statement Coverage** : Chaque instruction (nœud) du code est exécutée au moins une fois
-- **Branch Coverage** : Chaque branche (True/False) de chaque condition est traversée au moins une fois
-- **Path Coverage** : Chaque chemin unique du début à la fin de la fonction est couvert par au moins un cas de test
+- Statement Coverage : chaque instruction (noeud) du code est executee au moins une fois
+- Branch Coverage : chaque branche (True/False) de chaque decision est traversee au moins une fois
+- Path Coverage : chaque chemin unique du debut a la fin de la fonction est couvert par au moins un cas de test

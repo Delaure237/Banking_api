@@ -17,7 +17,7 @@ if (databaseUrl) {
         rejectUnauthorized: false,
       },
     },
-    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    logging: false,
     pool: {
       max: 5,
       min: 0,
@@ -39,7 +39,7 @@ if (databaseUrl) {
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432'),
       dialect: 'postgres',
-      logging: process.env.NODE_ENV === 'development' ? console.log : false,
+      logging: false,
       pool: {
         max: 10,
         min: 0,

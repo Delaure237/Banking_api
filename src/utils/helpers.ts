@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 import { PaginatedResponse, PaginationQuery } from '../shared/interfaces';
 
 export const generateAccountNumber = (): string => {
@@ -37,11 +37,11 @@ export const generateCVV = (): string => {
 };
 
 export const generateTransactionReference = (): string => {
-  return `TXN-${Date.now()}-${uuidv4().slice(0, 8).toUpperCase()}`;
+  return `TXN-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 };
 
 export const generateLoanReference = (): string => {
-  return `LOAN-${Date.now()}-${uuidv4().slice(0, 8).toUpperCase()}`;
+  return `LOAN-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 };
 
 export const paginate = <T>(
